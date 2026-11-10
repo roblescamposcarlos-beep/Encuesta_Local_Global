@@ -135,6 +135,12 @@ Cruzando las respuestas por edad en los datos de Sheets:
 
 Otro dato que la IA no destacó: **85 % de los encuestados compra en apps internacionales al menos una vez al mes** (17 de 20), aunque solo 10 % dice que "apoyar lo local" es lo que más pesa al comprar.
 
+## Video de la prueba en vivo
+
+[Ver la prueba en YouTube](https://youtu.be/BJqPKRB95XI)
+
+El enlace también está en [`video/enlace.txt`](video/enlace.txt).
+
 ## 7. Preguntas de reflexión
 
 **1. ¿El consumo de su comunidad es más local o más global? ¿En qué productos se nota más?**
