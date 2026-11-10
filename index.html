@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Compras local o global?</title>
+<style>
+  :root {
+    --verde: #2e7d32;
+    --verde-oscuro: #1b5e20;
+    --verde-claro: #e8f5e9;
+    --cielo: #e1f5fe;
+    --tierra: #6d4c41;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: linear-gradient(180deg, var(--cielo), var(--verde-claro));
+    color: #263238;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--verde-oscuro);
+    color: #fff;
+    padding: 24px 16px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 1.7rem; }
+  header p { margin: 0 auto; max-width: 640px; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+  fieldset {
+    background: #fff;
+    border: 0;
+    border-left: 6px solid var(--verde);
+    border-radius: 10px;
+    margin: 0 0 14px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  legend { font-weight: 600; padding: 0 6px; }
+  label.opcion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    cursor: pointer;
+  }
+  input[type="radio"] { width: 20px; height: 20px; accent-color: var(--verde); }
+  .acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  button {
+    flex: 1 1 200px;
+    background: var(--verde);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 13px 20px;
+    font-size: 1.05rem;
+    cursor: pointer;
+  }
+  button.secundario { background: var(--tierra); }
+  button:hover:not(:disabled) { filter: brightness(0.9); }
+  button:disabled { background: #9e9e9e; cursor: not-allowed; }
+  #aviso { color: #c62828; font-weight: 600; min-height: 1.4em; margin-top: 10px; }
+  #resultado {
+    display: none;
+    margin-top: 14px;
+    background: #fff;
+    border-left: 6px solid var(--tierra);
+    border-radius: 10px;
+    padding: 16px;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>¿Compras local o global?</h1>
+  <p>Encuesta anónima sobre hábitos de compra para la materia de Desarrollo Sustentable.</p>
+</header>
+
+<main>
+  <form id="formulario" novalidate>
+    <div id="preguntas"></div>
+    <div class="acciones">
+      <button type="submit" id="enviar">Enviar respuesta</button>
+      <button type="button" id="reporte" class="secundario">Generar reporte</button>
+    </div>
+    <div id="aviso" role="alert"></div>
+  </form>
+  <div id="resultado" aria-live="polite"></div>
+</main>
+
+<script>
+  // Pega aquí la URL de tu webhook de Make
+  const WEBHOOK_URL = "https://hook.us2.make.com/nop3ozf3wm935172uveys9dgiiwpomow";
+
+  const PREGUNTAS = [
+    { campo: "comida", texto: "¿Dónde compras la mayor parte de tu comida?", opciones: ["Mercado o tianguis", "Tienda de barrio", "Supermercado", "En línea"] },
+    { campo: "ropa", texto: "¿Dónde compras tu ropa?", opciones: ["Negocio local", "Tienda departamental", "App internacional", "Segunda mano"] },
+    { campo: "apps", texto: "¿Con qué frecuencia compras en apps internacionales?", opciones: ["Nunca", "Una vez al mes", "Varias veces al mes", "Cada semana"] },
+    { campo: "criterio", texto: "¿Qué pesa más al comprar?", opciones: ["Precio", "Calidad", "Cercanía", "Apoyar lo local", "Marca"] },
+    { campo: "origen", texto: "¿Sabes de dónde viene lo que compras?", opciones: ["Sí", "A veces", "No"] },
+    { campo: "edad", texto: "Rango de edad", opciones: ["Menos de 18", "18 a 29", "30 a 49", "50 o más"] }
+  ];
+
+  const formulario = document.getElementById("formulario");
+  const contenedor = document.getElementById("preguntas");
+  const botonEnviar = document.getElementById("enviar");
+  const botonReporte = document.getElementById("reporte");
+  const aviso = document.getElementById("aviso");
+  const resultado = document.getElementById("resultado");
+
+  PREGUNTAS.forEach(function (p) {
+    const fs = document.createElement("fieldset");
+    const lg = document.createElement("legend");
+    lg.textContent = p.texto;
+    fs.appendChild(lg);
+    p.opciones.forEach(function (op) {
+      const label = document.createElement("label");
+      label.className = "opcion";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = p.campo;
+      input.value = op;
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(op));
+      fs.appendChild(label);
+    });
+    contenedor.appendChild(fs);
+  });
+
+  function bloquear(si) {
+    botonEnviar.disabled = si;
+    botonReporte.disabled = si;
+  }
+
+  async function enviar(cuerpo, alTerminar) {
+    bloquear(true);
+    resultado.style.display = "block";
+    resultado.textContent = "Procesando...";
+    try {
+      const resp = await fetch(WEBHOOK_URL, { method: "POST", body: cuerpo });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      resultado.textContent = await resp.text();
+      if (alTerminar) alTerminar();
+    } catch (err) {
+      resultado.textContent = "No se pudo conectar, intenta de nuevo.";
+    } finally {
+      bloquear(false);
+    }
+  }
+
+  formulario.addEventListener("submit", function (e) {
+    e.preventDefault();
+    aviso.textContent = "";
+    const cuerpo = new URLSearchParams();
+    cuerpo.append("accion", "respuesta");
+    for (const p of PREGUNTAS) {
+      const marcado = formulario.querySelector('input[name="' + p.campo + '"]:checked');
+      if (!marcado) {
+        aviso.textContent = "Responde todas las preguntas antes de enviar.";
+        return;
+      }
+      cuerpo.append(p.campo, marcado.value);
+    }
+    enviar(cuerpo, function () { formulario.reset(); });
+  });
+
+  botonReporte.addEventListener("click", function () {
+    aviso.textContent = "";
+    const cuerpo = new URLSearchParams();
+    cuerpo.append("accion", "reporte");
+    enviar(cuerpo);
+  });
+</script>
+</body>
+</html>

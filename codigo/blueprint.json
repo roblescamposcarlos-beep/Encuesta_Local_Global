@@ -1,0 +1,173 @@
+{
+	"name": "Encuesta69",
+	"flow": [
+		{
+			"id": 1,
+			"module": "gateway:CustomWebHook",
+			"version": 1,
+			"parameters": { "hook": 3049488, "maxResults": 1 },
+			"mapper": {},
+			"metadata": {
+				"designer": { "x": 0, "y": 0 },
+				"interface": [
+					{ "name": "accion", "type": "text", "label": "accion" },
+					{ "name": "comida", "type": "text", "label": "comida" },
+					{ "name": "ropa", "type": "text", "label": "ropa" },
+					{ "name": "apps", "type": "text", "label": "apps" },
+					{ "name": "criterio", "type": "text", "label": "criterio" },
+					{ "name": "origen", "type": "text", "label": "origen" },
+					{ "name": "edad", "type": "text", "label": "edad" }
+				],
+				"parameters": [
+					{ "name": "hook", "type": "hook:gateway-webhook", "label": "Webhook", "required": true },
+					{ "name": "maxResults", "type": "number", "label": "Maximum number of results" }
+				]
+			}
+		},
+		{
+			"id": 2,
+			"module": "builtin:BasicRouter",
+			"version": 1,
+			"mapper": null,
+			"metadata": { "designer": { "x": 300, "y": 0 } },
+			"routes": [
+				{
+					"flow": [
+						{
+							"id": 3,
+							"module": "google-sheets:addRow",
+							"version": 2,
+							"filter": {
+								"name": "Es respuesta",
+								"conditions": [ [ { "a": "{{1.accion}}", "b": "respuesta", "o": "text:equal" } ] ]
+							},
+							"parameters": { "__IMTCONN__": 10844562 },
+							"mapper": {
+								"from": "drive",
+								"mode": "select",
+								"values": {
+									"0": "{{formatDate(now; \"DD/MM/YYYY HH:mm\")}}",
+									"1": "{{1.comida}}",
+									"2": "{{1.ropa}}",
+									"3": "{{1.apps}}",
+									"4": "{{1.criterio}}",
+									"5": "{{1.origen}}",
+									"6": "{{1.edad}}"
+								},
+								"sheetId": "Respuestas",
+								"spreadsheetId": "ID_DE_TU_HOJA_DE_GOOGLE_SHEETS",
+								"includesHeaders": true,
+								"insertDataOption": "INSERT_ROWS",
+								"useColumnHeaders": false,
+								"valueInputOption": "USER_ENTERED",
+								"insertUnformatted": false
+							},
+							"metadata": {
+								"designer": { "x": 600, "y": -150 },
+								"parameters": [ { "name": "__IMTCONN__", "type": "account:google", "label": "Connection", "required": true } ]
+							}
+						},
+						{
+							"id": 4,
+							"module": "gateway:WebhookRespond",
+							"version": 1,
+							"parameters": {},
+							"mapper": {
+								"body": "Respuesta registrada. Gracias por participar.",
+								"status": "200",
+								"headers": [
+									{ "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+									{ "key": "Access-Control-Allow-Origin", "value": "*" }
+								]
+							},
+							"metadata": { "designer": { "x": 900, "y": -150 } }
+						}
+					]
+				},
+				{
+					"flow": [
+						{
+							"id": 5,
+							"module": "google-sheets:filterRows",
+							"version": 2,
+							"filter": {
+								"name": "Es reporte",
+								"conditions": [ [ { "a": "{{1.accion}}", "b": "reporte", "o": "text:equal" } ] ]
+							},
+							"parameters": { "__IMTCONN__": 10844562 },
+							"mapper": {
+								"from": "drive",
+								"limit": "200",
+								"sheetId": "Respuestas",
+								"spreadsheetId": "ID_DE_TU_HOJA_DE_GOOGLE_SHEETS",
+								"tableFirstRow": "A1:Z1",
+								"includesHeaders": true,
+								"valueRenderOption": "FORMATTED_VALUE",
+								"dateTimeRenderOption": "FORMATTED_STRING"
+							},
+							"metadata": {
+								"designer": { "x": 600, "y": 150 },
+								"parameters": [ { "name": "__IMTCONN__", "type": "account:google", "label": "Connection", "required": true } ]
+							}
+						},
+						{
+							"id": 6,
+							"module": "util:TextAggregator",
+							"version": 1,
+							"parameters": { "feeder": 5, "rowSeparator": "\n" },
+							"mapper": {
+								"value": "{{5.Comida}} | {{5.Ropa}} | {{5.Apps}} | {{5.Criterio}} | {{5.Origen}} | {{5.Edad}}"
+							},
+							"metadata": { "designer": { "x": 900, "y": 150 } }
+						},
+						{
+							"id": 7,
+							"module": "ai-local-agent:RunLocalAIAgent",
+							"version": 0,
+							"tools": [],
+							"parameters": { "makeConnectionId": 10844322 },
+							"mapper": {
+								"files": [],
+								"message": "Respuestas de la encuesta (comida | ropa | apps | criterio | origen | edad):\n{{6.text}}",
+								"threadId": "",
+								"outputType": "text",
+								"tokenLimit": "50",
+								"modelConfig": { "timeout": "", "recursionLimit": "300", "aiCompactionEnabled": true, "iterationsFromHistoryCount": "10" },
+								"defaultModel": "medium",
+								"systemPrompt": "Eres un analista de economia local para alumnos de Desarrollo Sustentable del TecNM en Mazatlan, Sinaloa.\nRecibiras las respuestas de una encuesta, una por linea, con el formato: comida | ropa | apps | criterio | origen | edad.\nUsa UNICAMENTE esas respuestas; no inventes datos.\n\nResponde en texto plano (sin asteriscos, sin markdown), en espanol, con este formato:\n\nTOTAL DE RESPUESTAS: [numero]\n\nRESULTADOS\nComida: [cada opcion con su porcentaje]\nRopa: [...]\nApps internacionales: [...]\nCriterio de compra: [...]\nConoce el origen: [...]\n\nANALISIS\n[4 lineas maximo: que tan local o global es el consumo de esta comunidad y que diferencias hay por edad]\n\nCONCLUSIONES\n1. [efecto en la economia local]\n2. [efecto ambiental por transporte y empaques]\n3. [una accion concreta para impulsar el consumo local]",
+								"promptCaching": "none",
+								"fallbackEnabled": false
+							},
+							"metadata": { "designer": { "x": 1200, "y": 150 } }
+						},
+						{
+							"id": 8,
+							"module": "gateway:WebhookRespond",
+							"version": 1,
+							"parameters": {},
+							"mapper": {
+								"body": "{{7.response}}",
+								"status": "200",
+								"headers": [
+									{ "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+									{ "key": "Access-Control-Allow-Origin", "value": "*" }
+								]
+							},
+							"metadata": { "designer": { "x": 1500, "y": 150 } }
+						}
+					]
+				}
+			]
+		}
+	],
+	"metadata": {
+		"instant": true,
+		"version": 1,
+		"designer": { "orphans": [] },
+		"scenario": {
+			"dlq": false, "slots": null, "dataloss": false, "maxErrors": 3, "autoCommit": true,
+			"roundtrips": 1, "sequential": false, "confidential": false, "freshVariables": false,
+			"autoCommitTriggerLast": true
+		}
+	}
+}
